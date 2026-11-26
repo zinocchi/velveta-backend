@@ -24,24 +24,6 @@ func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
 	}
 	return
 }
-
-type WorkPin struct {
-	ID         uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
-	PinCode    string     `gorm:"type:varchar(10);uniqueIndex;not null" json:"pin_code"`
-	AssignedTo *uuid.UUID `gorm:"type:uuid" json:"assigned_to"`
-	User       *User      `gorm:"foreignKey:AssignedTo" json:"user,omitempty"`
-	IsUsed     bool       `gorm:"default:false" json:"is_used"`
-	ExpiresAt  time.Time  `gorm:"not null" json:"expires_at"`
-	CreatedAt  time.Time  `json:"created_at"`
-}
-
-func (w *WorkPin) BeforeCreate(tx *gorm.DB) (err error) {
-	if w.ID == uuid.Nil {
-		w.ID = uuid.New()
-	}
-	return
-}
-
 type Category struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	Name      string    `gorm:"type:varchar(50);not null" json:"name"`

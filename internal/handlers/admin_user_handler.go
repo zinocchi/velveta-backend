@@ -1,12 +1,8 @@
 package handlers
 
 import (
-	"crypto/rand"
 	"encoding/json"
-	"fmt"
-	"math/big"
 	"net/http"
-	"time"
 	"velveta-backend/internal/config"
 	"velveta-backend/internal/middleware"
 	"velveta-backend/internal/models"
@@ -148,29 +144,4 @@ func AdminDeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.JSON(w, http.StatusOK, true, "Pengguna berhasil dihapus", nil)
-}
-
-func AdminGenerateWorkPin(w http.ResponseWriter, r *http.Request) {
-	n, _ := rand.Int(rand.Reader, big.NewInt(900000))
-	pinCode := fmt.Sprintf("%06d", n.Int64()+100000)
-
-	pin := models.WorkPin{
-		PinCode:   pinCode,
-		IsUsed:    false,
-		ExpiresAt: time.Now().Add(12 * time.Hour),
-	}
-
-	if err := config.DB.Create(&pin).Error; err != nil {
-		utils.Error(w, http.StatusInternalServerError, "Gagal membuat Work PIN", nil)
-		return
-	}
-
-	utils.JSON(w, http.StatusCreated, true, "Work PIN berhasil dibuat (berlaku 12 jam)", pin)
-}
-
-func AdminGetAvailablePins(w http.ResponseWriter, r *http.Request) {
-	var pins []models.WorkPin
-	config.DB.Preload("User").Where("is_used = ? AND expires_at > ?", false, time.Now()).Order("created_at DESC").Find(&pins)
-
-	utils.JSON(w, http.StatusOK, true, "Daftar Work PIN aktif", pins)
 }

@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 	"velveta-backend/internal/config"
 	"velveta-backend/internal/middleware"
 	"velveta-backend/internal/models"
@@ -22,10 +21,6 @@ type RegisterRequest struct {
 type LoginRequest struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required"`
-}
-
-type VerifyPinRequest struct {
-	PinCode string `json:"pin_code" validate:"required,len=6"`
 }
 
 func Register(w http.ResponseWriter, r *http.Request) {
@@ -117,26 +112,4 @@ func GetMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.JSON(w, http.StatusOK, true, "Data profil berhasil diambil", user)
-}
-
-func VerifyWorkPin(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
-
-	var req VerifyPinRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.Error(w, http.StatusBadRequest, "Format JSON tidak valid", nil)
-		return
-	}
-
-	var pin models.WorkPin
-	if err := config.DB.Where("pin_code = ? AND is_used = ? AND expires_at > ?", req.PinCode, false, time.Now()).First(&pin).Error; err != nil {
-		utils.Error(w, http.StatusBadRequest, "PIN tidak valid atau sudah kedaluwarsa", nil)
-		return
-	}
-
-	pin.IsUsed = true
-	pin.AssignedTo = &userID
-	config.DB.Save(&pin)
-
-	utils.JSON(w, http.StatusOK, true, "Work PIN berhasil diverifikasi untuk shift ini", pin)
 }

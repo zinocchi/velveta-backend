@@ -34,35 +34,21 @@ func init() {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			utils.JSON(w, http.StatusOK, true, "Velveta POS Go API is running!", nil)
 		})
-
-		// Public Auth
 		r.Post("/auth/register", handlers.Register)
 		r.Post("/auth/login", handlers.Login)
 
-		// Protected Routes (Semua role yang sudah login)
 		r.Group(func(r chi.Router) {
 			r.Use(customMiddleware.AuthMiddleware)
 			r.Get("/auth/me", handlers.GetMe)
 
-			// Cashier & Admin Routes
-			r.Group(func(r chi.Router) {
-				r.Use(customMiddleware.RequireRole("admin", "cashier"))
-				r.Post("/cashier/verify-pin", handlers.VerifyWorkPin)
-			})
-
-			// Admin Only Routes
-			r.Group(func(r chi.Router) {
+				r.Group(func(r chi.Router) {
 				r.Use(customMiddleware.RequireRole("admin"))
 
-				// User Management
 				r.Get("/admin/users", handlers.AdminGetUsers)
 				r.Post("/admin/users", handlers.AdminCreateUser)
 				r.Put("/admin/users/{id}", handlers.AdminUpdateUser)
 				r.Delete("/admin/users/{id}", handlers.AdminDeleteUser)
 
-				// Work PIN
-				r.Post("/admin/generate-pin", handlers.AdminGenerateWorkPin)
-				r.Get("/admin/available-pins", handlers.AdminGetAvailablePins)
 			})
 		})
 	})
