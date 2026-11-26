@@ -3,6 +3,8 @@ package handler
 import (
 	"net/http"
 	"velveta-backend/internal/config"
+	"velveta-backend/internal/handlers"
+	customMiddleware "velveta-backend/internal/middleware"
 	"velveta-backend/internal/utils"
 
 	"github.com/go-chi/chi/v5"
@@ -13,14 +15,12 @@ import (
 var router *chi.Mux
 
 func init() {
-	// Inisialisasi DB & AutoMigrate
 	config.InitDB()
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// Konfigurasi CORS agar frontend React di Vercel bisa akses API ini
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:3000", "https://*.vercel.app"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
@@ -30,18 +30,46 @@ func init() {
 		MaxAge:           300,
 	}))
 
-	// Health check endpoint
-	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		utils.JSON(w, http.StatusOK, true, "Velveta POS Go API is running!", map[string]string{
-			"status":   "healthy",
-			"database": "connected",
+	r.Route("/api", func(r chi.Router) {
+		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+			utils.JSON(w, http.StatusOK, true, "Velveta POS Go API is running!", nil)
+		})
+
+		// Public Auth
+		r.Post("/auth/register", handlers.Register)
+		r.Post("/auth/login", handlers.Login)
+
+		// Protected Routes (Semua role yang sudah login)
+		r.Group(func(r chi.Router) {
+			r.Use(customMiddleware.AuthMiddleware)
+			r.Get("/auth/me", handlers.GetMe)
+
+			// Cashier & Admin Routes
+			r.Group(func(r chi.Router) {
+				r.Use(customMiddleware.RequireRole("admin", "cashier"))
+				r.Post("/cashier/verify-pin", handlers.VerifyWorkPin)
+			})
+
+			// Admin Only Routes
+			r.Group(func(r chi.Router) {
+				r.Use(customMiddleware.RequireRole("admin"))
+
+				// User Management
+				r.Get("/admin/users", handlers.AdminGetUsers)
+				r.Post("/admin/users", handlers.AdminCreateUser)
+				r.Put("/admin/users/{id}", handlers.AdminUpdateUser)
+				r.Delete("/admin/users/{id}", handlers.AdminDeleteUser)
+
+				// Work PIN
+				r.Post("/admin/generate-pin", handlers.AdminGenerateWorkPin)
+				r.Get("/admin/available-pins", handlers.AdminGetAvailablePins)
+			})
 		})
 	})
 
 	router = r
 }
 
-// Handler adalah fungsi wajib yang dipanggil oleh Vercel Serverless
 func Handler(w http.ResponseWriter, r *http.Request) {
 	router.ServeHTTP(w, r)
 }
