@@ -34,21 +34,44 @@ func init() {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			utils.JSON(w, http.StatusOK, true, "Velveta POS Go API is running!", nil)
 		})
+
+		// Public Auth
 		r.Post("/auth/register", handlers.Register)
 		r.Post("/auth/login", handlers.Login)
 
+		// Public Menu & Categories
+		r.Get("/categories", handlers.GetCategories)
+		r.Get("/menus", handlers.GetMenus)
+		r.Get("/menus/category/{slug}", handlers.GetMenusByCategorySlug)
+		r.Get("/menus/{id}", handlers.GetMenuByID)
+
+		// Protected Routes
 		r.Group(func(r chi.Router) {
 			r.Use(customMiddleware.AuthMiddleware)
 			r.Get("/auth/me", handlers.GetMe)
 
-				r.Group(func(r chi.Router) {
+			// Admin Only Routes
+			r.Group(func(r chi.Router) {
 				r.Use(customMiddleware.RequireRole("admin"))
 
+				// User Management (Admin, Cashier, User)
 				r.Get("/admin/users", handlers.AdminGetUsers)
 				r.Post("/admin/users", handlers.AdminCreateUser)
 				r.Put("/admin/users/{id}", handlers.AdminUpdateUser)
 				r.Delete("/admin/users/{id}", handlers.AdminDeleteUser)
 
+				// Category Management
+				r.Post("/admin/categories", handlers.AdminCreateCategory)
+				r.Delete("/admin/categories/{id}", handlers.AdminDeleteCategory)
+
+				// Menu & Stock Management
+				r.Post("/admin/menus", handlers.AdminCreateMenu)
+				r.Put("/admin/menus/{id}", handlers.AdminUpdateMenu)
+				r.Delete("/admin/menus/{id}", handlers.AdminDeleteMenu)
+				r.Put("/admin/menus/{id}/stock", handlers.AdminUpdateStock)
+				r.Post("/admin/menus/bulk-update-stock", handlers.AdminBulkUpdateStock)
+				r.Get("/admin/stock/low-stock", handlers.AdminGetLowStockItems)
+				r.Patch("/admin/menus/{id}/toggle-availability", handlers.AdminToggleMenuAvailability)
 			})
 		})
 	})
