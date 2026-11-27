@@ -32,27 +32,48 @@ func init() {
 
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-			utils.JSON(w, http.StatusOK, true, "Velveta POS Go API is running!", nil)
+			utils.JSON(w, http.StatusOK, true, "Velveta POS Go API v2.0 is running!", nil)
 		})
 
 		// Public Auth
 		r.Post("/auth/register", handlers.Register)
 		r.Post("/auth/login", handlers.Login)
 
-		// Public Menu & Categories
+		// Public Menu, Categories & Payment Methods
 		r.Get("/categories", handlers.GetCategories)
 		r.Get("/menus", handlers.GetMenus)
 		r.Get("/menus/category/{slug}", handlers.GetMenusByCategorySlug)
 		r.Get("/menus/{id}", handlers.GetMenuByID)
+		r.Get("/payment/methods", handlers.GetPaymentMethods)
 
-		// Protected Routes
+		// Midtrans Webhook (Public, diverifikasi via SHA512 Signature)
+		r.Post("/webhooks/midtrans", handlers.MidtransWebhook)
+
+		// Protected Routes (Semua role yang login)
 		r.Group(func(r chi.Router) {
 			r.Use(customMiddleware.AuthMiddleware)
 			r.Get("/auth/me", handlers.GetMe)
 
+			// Order Routes (Customer & Staff)
+			r.Post("/orders", handlers.CreateOrder)
+			r.Get("/orders/my", handlers.GetMyOrders)
+			r.Get("/orders/{id}", handlers.GetOrderDetail)
+
+			// Cashier & Admin Routes (Operasional POS)
+			r.Group(func(r chi.Router) {
+				r.Use(customMiddleware.RequireRole("admin", "cashier"))
+				r.Get("/manage/orders", handlers.ManageGetOrders)
+				r.Put("/manage/orders/{id}/status", handlers.ManageUpdateOrderStatus)
+				r.Post("/manage/orders/bulk-status", handlers.ManageBulkUpdateOrderStatus)
+				r.Post("/manage/orders/{id}/confirm-cash", handlers.ConfirmCashPayment)
+			})
+
 			// Admin Only Routes
 			r.Group(func(r chi.Router) {
 				r.Use(customMiddleware.RequireRole("admin"))
+
+				r.Get("/admin/dashboard", handlers.AdminGetDashboard)
+				r.Get("/admin/dashboard/revenue-report", handlers.AdminGetRevenueReport)
 
 				// User Management (Admin, Cashier, User)
 				r.Get("/admin/users", handlers.AdminGetUsers)
